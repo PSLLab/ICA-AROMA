@@ -20,7 +20,7 @@ os.chdir(scriptDir)
 
 parser = argparse.ArgumentParser(description='Script to run ICA-AROMA v0.3 beta (\'ICA-based Automatic Removal Of Motion Artifacts\') on fMRI data. See the companion manual for further information.')
 
-# Required options                    
+# Required options
 reqoptions = parser.add_argument_group('Required arguments')
 reqoptions.add_argument('-o', '-out', dest="outDir", required=True, help='Output directory name' )
 
@@ -42,6 +42,7 @@ optoptions.add_argument('-tr', dest="TR", help='TR in seconds',type=float)
 optoptions.add_argument('-den', dest="denType", default="nonaggr", help='Type of denoising strategy: \'no\': only classification, no denoising; \'nonaggr\': non-aggresssive denoising (default); \'aggr\': aggressive denoising; \'both\': both aggressive and non-aggressive denoising (seperately)')
 optoptions.add_argument('-md','-meldir', dest="melDir", default="",help='MELODIC directory name, in case MELODIC has been run previously.')
 optoptions.add_argument('-dim', dest="dim", default=0,help='Dimensionality reduction into #num dimensions when running MELODIC (default: automatic estimation; i.e. -dim 0)',type=int)
+optoptions.add_argument('-seed', dest="seed", default=0,help='seed for melodic to produce reproducible results',type=int)
 
 print('\n------------------------------- RUNNING ICA-AROMA ------------------------------- ')
 print('--------------- \'ICA-based Automatic Removal Of Motion Artifacts\' --------------- \n')
@@ -56,7 +57,7 @@ if args.inFeat:
 	inFeat = args.inFeat
 
 	# Check whether the Feat directory exists
-	if not os.path.isdir(inFeat): 
+	if not os.path.isdir(inFeat):
 		print('The specified Feat directory does not exist.')
 		print('\n----------------------------- ICA-AROMA IS CANCELED -----------------------------\n')
 		exit()
@@ -68,23 +69,23 @@ if args.inFeat:
 	warp = os.path.join(args.inFeat,'reg','highres2standard_warp.nii.gz')
 
 	# Check whether these files actually exist
-	if not os.path.isfile(inFile): 
+	if not os.path.isfile(inFile):
 		print('Missing filtered_func_data.nii.gz in Feat directory.')
 		cancel=True
-	if not os.path.isfile(mc): 
+	if not os.path.isfile(mc):
 		print('Missing mc/prefiltered_func_data_mcf.mat in Feat directory.')
 		cancel=True
-	if not os.path.isfile(affmat): 
-		print('Missing reg/example_func2highres.mat in Feat directory.') 
+	if not os.path.isfile(affmat):
+		print('Missing reg/example_func2highres.mat in Feat directory.')
 		cancel=True
-	if not os.path.isfile(warp): 
+	if not os.path.isfile(warp):
 		print('Missing reg/highres2standard_warp.nii.gz in Feat directory.')
 		cancel=True
-	
+
 	# Check whether a melodic.ica directory exists
 	if os.path.isdir(os.path.join(args.inFeat,'filtered_func_data.ica')):
 		melDir = os.path.join(args.inFeat,'filtered_func_data.ica')
-	else: 
+	else:
 		melDir=args.melDir
 else:
 	inFile = args.inFile
@@ -97,21 +98,21 @@ else:
 	if not inFile:
 		print('No input file specified.')
 	else:
-		if not os.path.isfile(inFile): 
+		if not os.path.isfile(inFile):
 			print('The specified input file does not exist.')
 			cancel=True
 	if not mc:
 		print('No mc file specified.')
 	else:
-		if not os.path.isfile(mc): 
+		if not os.path.isfile(mc):
 			print('The specified mc file does does not exist.')
 			cancel=True
 	if affmat:
-		if not os.path.isfile(affmat): 
+		if not os.path.isfile(affmat):
 			print('The specified affmat file does not exist.')
 			cancel=True
 	if warp:
-		if not os.path.isfile(warp): 
+		if not os.path.isfile(warp):
 			print('The specified warp file does not exist.')
 			cancel=True
 
@@ -119,6 +120,7 @@ else:
 outDir = args.outDir
 dim = args.dim
 denType = args.denType
+seed = args.seed
 
 # Check if the mask exists, when specified.
 if args.mask:
@@ -149,8 +151,8 @@ if not os.path.isdir(outDir):
 if args.TR:
 	TR = args.TR
 else:
-	cmd = ' '.join([os.path.join(fslDir,'fslinfo'), 
-		inFile, 
+	cmd = ' '.join([os.path.join(fslDir,'fslinfo'),
+		inFile,
 		'| grep pixdim4 | awk \'{print $2}\''])
 	TR=float(subprocess.getoutput(cmd))
 
@@ -168,11 +170,11 @@ else:
 	# If a Feat directory is specified, and an example_func is present use example_func to create a mask
 	if args.inFeat and os.path.isfile(os.path.join(inFeat,'example_func.nii.gz')):
 		os.system(' '.join([os.path.join(fslDir,'bet'),
-			os.path.join(inFeat,'example_func.nii.gz'), 
+			os.path.join(inFeat,'example_func.nii.gz'),
 			os.path.join(outDir,'bet'),
 			'-f 0.3 -n -m -R']))
 		os.system(' '.join(['mv',
-			os.path.join(outDir,'bet_mask.nii.gz'), 
+			os.path.join(outDir,'bet_mask.nii.gz'),
 			mask]))
 		if os.path.isfile(os.path.join(outDir,'bet.nii.gz')):
 			os.remove(os.path.join(outDir,'bet.nii.gz'))
@@ -188,7 +190,7 @@ else:
 #---------------------------------------- Run ICA-AROMA ----------------------------------------#
 
 print('Step 1) MELODIC')
-aromafunc.runICA(fslDir, inFile, outDir, melDir, mask, dim, TR)
+aromafunc.runICA(fslDir, inFile, outDir, melDir, mask, dim, TR, seed)
 
 print('Step 2) Automatic classification of the components')
 print('  - registering the spatial maps to MNI')

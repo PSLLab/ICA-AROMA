@@ -9,7 +9,7 @@ standard_library.install_aliases()
 from builtins import str
 from builtins import range
 from past.utils import old_div
-def runICA(fslDir, inFile, outDir, melDirIn, mask, dim, TR):
+def runICA(fslDir, inFile, outDir, melDirIn, mask, dim, TR, seed):
 	""" This function runs MELODIC and merges the mixture modeled thresholded ICs into a single 4D nifti file
 
 	Parameters
@@ -21,7 +21,7 @@ def runICA(fslDir, inFile, outDir, melDirIn, mask, dim, TR):
 	mask:		Full path of the mask to be applied during MELODIC
 	dim:		Dimensionality of ICA
 	TR:		TR (in seconds) of the fMRI data
-	
+
 	Output (within the requested output directory)
 	---------------------------------------------------------------------------------
 	melodic.ica		MELODIC directory
@@ -47,7 +47,7 @@ def runICA(fslDir, inFile, outDir, melDirIn, mask, dim, TR):
 			os.symlink(melDirIn,melDir)
 		else:
 			print('  - The MELODIC directory does not contain the required \'stats\' folder. Mixture modeling on the Z-statistical maps will be run.')
-			
+
 			# Create symbolic links to the items in the specified melodic directory
 			os.makedirs(melDir)
 			for item in os.listdir(melDirIn):
@@ -59,8 +59,9 @@ def runICA(fslDir, inFile, outDir, melDirIn, mask, dim, TR):
 				'--ICs=' + melIC,
 				'--mix=' + melICmix,
 				'--outdir=' + melDir,
-				'--Ostats --mmthresh=0.5']))
-			
+				'--Ostats --mmthresh=0.5',
+				'--seed=' + seed]))
+
 	else:
 		# If a melodic directory was specified, display that it did not contain all files needed for ICA-AROMA (or that the directory does not exist at all)
 		if len(melDirIn) != 0 :
@@ -68,15 +69,16 @@ def runICA(fslDir, inFile, outDir, melDirIn, mask, dim, TR):
 				print('  - The specified MELODIC directory does not exist. MELODIC will be run seperately.')
 			else:
 				print('  - The specified MELODIC directory does not contain the required files to run ICA-AROMA. MELODIC will be run seperately.')
-		
+
 		# Run MELODIC
 		os.system(' '.join([os.path.join(fslDir,'melodic'),
-			'--in=' + inFile, 
-			'--outdir=' + melDir, 
-			'--mask=' + mask, 
+			'--in=' + inFile,
+			'--outdir=' + melDir,
+			'--mask=' + mask,
 			'--dim=' + str(dim),
 			'--Ostats --nobet --mmthresh=0.5 --report',
-			'--tr=' + str(TR)]))
+			'--tr=' + str(TR),
+			'--seed=' + seed]))
 
 	# Get number of components
 	cmd = ' '.join([os.path.join(fslDir,'fslinfo'),
@@ -97,8 +99,8 @@ def runICA(fslDir, inFile, outDir, melDirIn, mask, dim, TR):
 		cmd = ' '.join([os.path.join(fslDir,'zeropad'),
 			str(i),
 			'4'])
-		ICnum=subprocess.getoutput(cmd)	
-		zstat = os.path.join(outDir,'thr_zstat' + ICnum)		
+		ICnum=subprocess.getoutput(cmd)
+		zstat = os.path.join(outDir,'thr_zstat' + ICnum)
 
 		# Extract last spatial map within the thresh_zstat file
 		os.system(' '.join([os.path.join(fslDir,'fslroi'),
@@ -142,7 +144,7 @@ def register2MNI(fslDir, inFile, outFile, affmat, warp):
 	import subprocess
 
 	# Define the MNI152 T1 2mm template
-	fslnobin = fslDir.rsplit('/',2)[0] 
+	fslnobin = fslDir.rsplit('/',2)[0]
 	ref = os.path.join(fslnobin,'data','standard','MNI152_T1_2mm_brain.nii.gz')
 
 	# If the no affmat- or warp-file has been specified, assume that the data is already in MNI152 space. In that case only check if resampling to 2mm is needed
@@ -151,7 +153,7 @@ def register2MNI(fslDir, inFile, outFile, affmat, warp):
 		pixdim1=float(subprocess.getoutput('%sfslinfo %s | grep pixdim1 | awk \'{print $2}\'' % (fslDir,inFile) ))
 		pixdim2=float(subprocess.getoutput('%sfslinfo %s | grep pixdim2 | awk \'{print $2}\'' % (fslDir,inFile) ))
 		pixdim3=float(subprocess.getoutput('%sfslinfo %s | grep pixdim3 | awk \'{print $2}\'' % (fslDir,inFile) ))
-	
+
 		# If voxel size is not 2mm isotropic, resample the data, otherwise copy the file
 		if (pixdim1 != 2) or (pixdim2 != 2) or (pixdim3 !=2 ):
 			os.system(' '.join([os.path.join(fslDir,'flirt'),
@@ -161,7 +163,7 @@ def register2MNI(fslDir, inFile, outFile, affmat, warp):
 				' -applyisoxfm 2 -interp trilinear']))
 		else:
 			os.system('cp ' + inFile + ' ' + outFile)
-	
+
 	# If only a warp-file has been specified, assume that the data has already been registered to the structural scan. In that case apply the warping without a affmat
 	elif (len(affmat) == 0) and (len(warp) != 0):
 		# Apply warp
@@ -199,7 +201,7 @@ def feature_time_series(melmix, mc):
 	---------------------------------------------------------------------------------
 	melmix:		Full path of the melodic_mix text file
 	mc:		Full path of the text file containing the realignment parameters
-	
+
 	Returns
 	---------------------------------------------------------------------------------
 	maxRPcorr:	Array of the maximum RP correlation feature scores for the components of the melodic_mix file"""
@@ -276,13 +278,13 @@ def feature_time_series(melmix, mc):
 	return maxRPcorr
 
 def feature_frequency(melFTmix, TR):
-	""" This function extracts the high-frequency content feature scores. It determines the frequency, as fraction of the Nyquist frequency, at which the higher and lower frequencies explain half of the total power between 0.01Hz and Nyquist. 
-	
+	""" This function extracts the high-frequency content feature scores. It determines the frequency, as fraction of the Nyquist frequency, at which the higher and lower frequencies explain half of the total power between 0.01Hz and Nyquist.
+
 	Parameters
 	---------------------------------------------------------------------------------
 	melFTmix:	Full path of the melodic_FTmix text file
 	TR:		TR (in seconds) of the fMRI data (float)
-	
+
 	Returns
 	---------------------------------------------------------------------------------
 	HFC:		Array of the HFC ('High-frequency content') feature scores for the components of the melodic_FTmix file"""
@@ -295,7 +297,7 @@ def feature_frequency(melFTmix, TR):
 
 	# Determine Nyquist-frequency
 	Ny = old_div(Fs,2)
-		
+
 	# Load melodic_FTmix file
 	FT=np.loadtxt(melFTmix)
 
@@ -318,7 +320,7 @@ def feature_frequency(melFTmix, TR):
 
 	# Now get the fractions associated with those indices index, these are the final feature scores
 	HFC = f_norm[idx_cutoff]
-		 
+
 	# Return feature score
 	return HFC
 
@@ -329,9 +331,9 @@ def feature_spatial(fslDir, tempDir, aromaDir, melIC):
 	---------------------------------------------------------------------------------
 	fslDir:		Full path of the bin-directory of FSL
 	tempDir:	Full path of a directory where temporary files can be stored (called 'temp_IC.nii.gz')
-	aromaDir:	Full path of the ICA-AROMA directory, containing the mask-files (mask_edge.nii.gz, mask_csf.nii.gz & mask_out.nii.gz) 
+	aromaDir:	Full path of the ICA-AROMA directory, containing the mask-files (mask_edge.nii.gz, mask_csf.nii.gz & mask_out.nii.gz)
 	melIC:		Full path of the nii.gz file containing mixture-modeled threholded (p>0.5) Z-maps, registered to the MNI152 2mm template
-	
+
 	Returns
 	---------------------------------------------------------------------------------
 	edgeFract:	Array of the edge fraction feature scores for the components of the melIC file
@@ -364,12 +366,12 @@ def feature_spatial(fslDir, tempDir, aromaDir, melIC):
 			tempIC,
 			'-abs',
 			tempIC]))
-		
+
 		# Get sum of Z-values within the total Z-map (calculate via the mean and number of non-zero voxels)
 		totVox = int(subprocess.getoutput(' '.join([os.path.join(fslDir,'fslstats'),
 							tempIC,
 							'-V | awk \'{print $1}\''])))
-		
+
 		if not (totVox == 0):
 			totMean = float(subprocess.getoutput(' '.join([os.path.join(fslDir,'fslstats'),
 							tempIC,
@@ -379,7 +381,7 @@ def feature_spatial(fslDir, tempDir, aromaDir, melIC):
 			totMean = 0
 
 		totSum = totMean * totVox
-		
+
 		# Get sum of Z-values of the voxels located within the CSF (calculate via the mean and number of non-zero voxels)
 		csfVox = int(subprocess.getoutput(' '.join([os.path.join(fslDir,'fslstats'),
 							tempIC,
@@ -394,7 +396,7 @@ def feature_spatial(fslDir, tempDir, aromaDir, melIC):
 		else:
 			csfMean = 0
 
-		csfSum = csfMean * csfVox	
+		csfSum = csfMean * csfVox
 
 		# Get sum of Z-values of the voxels located within the Edge (calculate via the mean and number of non-zero voxels)
 		edgeVox = int(subprocess.getoutput(' '.join([os.path.join(fslDir,'fslstats'),
@@ -408,7 +410,7 @@ def feature_spatial(fslDir, tempDir, aromaDir, melIC):
 							'-M'])))
 		else:
 			edgeMean = 0
-		
+
 		edgeSum = edgeMean * edgeVox
 
 		# Get sum of Z-values of the voxels located outside the brain (calculate via the mean and number of non-zero voxels)
@@ -423,7 +425,7 @@ def feature_spatial(fslDir, tempDir, aromaDir, melIC):
 							'-M'])))
 		else:
 			outMean = 0
-		
+
 		outSum = outMean * outVox
 
 		# Determine edge and CSF fraction
@@ -470,7 +472,7 @@ def classification(outDir, maxRPcorr, edgeFract, HFC, csfFract):
 	thr_csf = 0.10
 	thr_HFC = 0.35
 	hyp = np.array([-19.9751070082159, 9.95127547670627, 24.8333160239175])
-	
+
 	# Project edge & maxRPcorr feature scores to new 1D space
 	x = np.array([maxRPcorr, edgeFract])
 	proj = hyp[0] + np.dot(x.T,hyp[1:])
@@ -510,7 +512,7 @@ def denoising(fslDir, inFile, outDir, melmix, denType, denIdx):
 	inFile:		Full path to the data file (nii.gz) which has to be denoised
 	outDir:		Full path of the output directory
 	melmix:		Full path of the melodic_mix text file
-	denType:	Type of requested denoising ('aggr': aggressive, 'nonaggr': non-aggressive, 'both': both aggressive and non-aggressive 
+	denType:	Type of requested denoising ('aggr': aggressive, 'nonaggr': non-aggressive, 'both': both aggressive and non-aggressive
 	denIdx:		Indices of the components that should be regressed out
 
 	Output (within the requested output directory)
@@ -529,7 +531,7 @@ def denoising(fslDir, inFile, outDir, melmix, denType, denIdx):
 		denIdxStr = np.char.mod('%i',(denIdx+1))
 
 		# Non-aggressive denoising of the data using fsl_regfilt (partial regression), if requested
-		if (denType == 'nonaggr') or (denType == 'both'):		
+		if (denType == 'nonaggr') or (denType == 'both'):
 			os.system(' '.join([os.path.join(fslDir,'fsl_regfilt'),
 				'--in=' + inFile,
 				'--design=' + melmix,
