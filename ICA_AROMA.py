@@ -44,6 +44,7 @@ optoptions.add_argument('-den', dest="denType", default="nonaggr", help='Type of
 optoptions.add_argument('-md', '-meldir', dest="melDir", default="",help='MELODIC directory name, in case MELODIC has been run previously.')
 optoptions.add_argument('-dim', dest="dim", default=0, help='Dimensionality reduction into #num dimensions when running MELODIC (default: automatic estimation; i.e. -dim 0)', type=int)
 optoptions.add_argument('-ow', '-overwrite', dest="overwrite", action='store_true', help='Overwrite existing output', default=False)
+optoptions.add_argument('-seed', dest="seed", default=0,help='seed for melodic to produce reproducible results',type=int)aromafunc
 
 print('\n------------------------------- RUNNING ICA-AROMA ------------------------------- ')
 print('--------------- \'ICA-based Automatic Removal Of Motion Artifacts\' --------------- \n')

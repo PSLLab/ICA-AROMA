@@ -12,7 +12,7 @@ from past.utils import old_div
 import numpy as np
 
 
-def runICA(fslDir, inFile, outDir, melDirIn, mask, dim, TR):
+def runICA(fslDir, inFile, outDir, melDirIn, mask, dim, TR, seed):
     """ This function runs MELODIC and merges the mixture modeled thresholded ICs into a single 4D nifti file
 
     Parameters
@@ -68,7 +68,8 @@ def runICA(fslDir, inFile, outDir, melDirIn, mask, dim, TR):
                                 '--ICs=' + melIC,
                                 '--mix=' + melICmix,
                                 '--outdir=' + melDir,
-                                '--Ostats --mmthresh=0.5']))
+                                '--Ostats --mmthresh=0.5',
+								'--seed=' + str(seed)]))
 
     else:
         # If a melodic directory was specified, display that it did not contain all files needed for ICA-AROMA (or that the directory does not exist at all)
@@ -85,7 +86,8 @@ def runICA(fslDir, inFile, outDir, melDirIn, mask, dim, TR):
                             '--mask=' + mask,
                             '--dim=' + str(dim),
                             '--Ostats --nobet --mmthresh=0.5 --report',
-                            '--tr=' + str(TR)]))
+                            '--tr=' + str(TR),
+							'--seed=' + str(seed)]))
 
     # Get number of components
     cmd = ' '.join([os.path.join(fslDir, 'fslinfo'),
